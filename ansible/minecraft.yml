@@ -1,0 +1,90 @@
+---
+- name: Configure the Docker-based Minecraft server
+  hosts: minecraft
+  become: true
+
+  tasks:
+    - name: Install Docker
+      ansible.builtin.apt:
+        name:
+          - docker.io
+          - ca-certificates
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Enable and start Docker
+      ansible.builtin.systemd_service:
+        name: docker
+        enabled: true
+        state: started
+
+    - name: Create the persistent Minecraft data directory
+      ansible.builtin.file:
+        path: /opt/minecraft/data
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Create the Minecraft configuration directory
+      ansible.builtin.file:
+        path: /etc/minecraft
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Copy the Minecraft container environment configuration
+      ansible.builtin.copy:
+        src: files/minecraft.env
+        dest: /etc/minecraft/minecraft.env
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart Minecraft container service
+
+    - name: Pull the Minecraft Docker image
+      ansible.builtin.command: /usr/bin/docker pull itzg/minecraft-server:latest
+      register: minecraft_image_pull
+      changed_when: "'Downloaded newer image' in minecraft_image_pull.stdout or 'Downloaded newer image' in minecraft_image_pull.stderr"
+      notify: Restart Minecraft container service
+
+    - name: Install the Minecraft systemd service
+      ansible.builtin.copy:
+        src: files/minecraft-container.service
+        dest: /etc/systemd/system/minecraft-container.service
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart Minecraft container service
+
+    - name: Enable and start the Minecraft container service
+      ansible.builtin.systemd_service:
+        name: minecraft-container.service
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Apply configuration changes before testing the service
+      ansible.builtin.meta: flush_handlers
+
+    - name: Wait for the Minecraft server port to be available
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 25565
+        delay: 2
+        timeout: 600
+
+    - name: Verify the Minecraft service is active
+      ansible.builtin.command: /usr/bin/systemctl is-active minecraft-container.service
+      register: minecraft_service_active
+      changed_when: false
+      failed_when: minecraft_service_active.stdout.strip() != "active"
+
+  handlers:
+    - name: Restart Minecraft container service
+      ansible.builtin.systemd_service:
+        name: minecraft-container.service
+        state: restarted
+        daemon_reload: true
