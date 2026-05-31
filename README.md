@@ -14,24 +14,24 @@ The deployment is performed from a local Ubuntu or WSL control node. The AWS Man
 
 ```mermaid
 flowchart TD
-    A[AWS Academy temporary CLI credentials] --> B[scripts/provision.sh]
-    B --> C[Terraform]
-    C --> D[VPC: 10.0.0.0/16 in us-east-1]
-    D --> E[Public subnet: 10.0.1.0/24 in us-east-1c]
-    D --> F[Internet Gateway and public route table]
-    D --> G[Security group]
-    G --> H[SSH TCP 22 from control node public IP]
-    G --> I[Minecraft TCP and query UDP 25565]
-    E --> J[Ubuntu Server 24.04 LTS EC2 instance]
-    J --> K[Generated Ansible inventory]
-    K --> L[Ansible playbook]
-    L --> M[Docker Engine]
-    M --> N[itzg/minecraft-server container]
-    N --> O[/opt/minecraft/data host-mounted server data]
-    N --> P[systemd service starts container on boot]
-    P --> Q[docker stop performs Minecraft graceful shutdown]
-    J --> R[AWS CLI reboot test]
-    J --> S[nmap verification on TCP 25565]
+    A["AWS Academy temporary CLI credentials"] --> B["scripts/provision.sh"]
+    B --> C["Terraform"]
+    C --> D["VPC: 10.0.0.0/16 in us-east-1"]
+    D --> E["Public subnet: 10.0.1.0/24 in us-east-1c"]
+    D --> F["Internet Gateway and public route table"]
+    D --> G["Security group"]
+    G --> H["SSH TCP 22 from control node public IP"]
+    G --> I["Minecraft TCP and query UDP 25565"]
+    E --> J["Ubuntu Server 24.04 LTS EC2 instance"]
+    J --> K["Generated Ansible inventory"]
+    K --> L["Ansible playbook"]
+    L --> M["Docker Engine"]
+    M --> N["itzg/minecraft-server container"]
+    N --> O["/opt/minecraft/data host-mounted server data"]
+    N --> P["systemd service starts container on boot"]
+    P --> Q["docker stop performs Minecraft graceful shutdown"]
+    J --> R["AWS CLI reboot test"]
+    J --> S["nmap verification on TCP 25565"]
 ```
 
 ## Repository Layout
@@ -177,7 +177,7 @@ The container maps `/opt/minecraft/data` on the EC2 host to `/data` inside the c
 The `minecraft-container.service` unit is enabled through `systemd`, so the container starts after the EC2 instance boots. The unit stops the server with:
 
 ```bash
-/usr/bin/docker stop --time 90 minecraft-server
+/usr/bin/docker stop --timeout 90 minecraft-server
 ```
 
 The selected Minecraft Docker image enables RCON for coordinated saving and uses a Docker stop request to perform a graceful Minecraft server stop. The RCON port is not published through Docker or opened in the AWS security group.
