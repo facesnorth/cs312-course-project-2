@@ -6,7 +6,7 @@ Professor Virasak
 
 ## Background
 
-Course Project Part 1 deployed a Minecraft Java server manually on an Ubuntu EC2 instance. This repository automates a new deployment of that service. Terraform provisions the AWS networking and EC2 resources. Ansible installs Docker and deploys a Minecraft Java server container. The Minecraft server is then tested externally with `nmap` and tested again after an AWS CLI reboot operation.
+In Course Project Part 1, I deployed a Minecraft Java server manually on an Ubuntu EC2 instance. This repository automates a new deployment of that service. Terraform provisions the AWS networking and EC2 resources. Ansible installs Docker and deploys a Minecraft Java server container. The Minecraft server is then tested externally with `nmap` and tested again after an AWS CLI reboot operation.
 
 The deployment is performed from a local Ubuntu or WSL control node. The AWS Management Console is not used to provision or configure the server, and the configuration process does not require an interactive SSH session with the EC2 instance.
 

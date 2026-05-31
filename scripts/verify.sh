@@ -37,22 +37,6 @@ ansible minecraft --become -m ansible.builtin.command -a "/usr/bin/systemctl is-
 printf '\n== Verify the running Docker container and image ==\n'
 ansible minecraft --become -m ansible.builtin.command -a "/usr/bin/docker ps --filter name=minecraft-server"
 
-printf '\n== Wait for Minecraft to finish loading before public nmap verification ==\n'
-ansible minecraft --become -m ansible.builtin.shell -a '
-set -eu
-attempt=0
-while [ "$attempt" -lt 90 ]; do
-    if /usr/bin/docker logs minecraft-server 2>&1 | /usr/bin/grep -F "Done (" >/dev/null; then
-        /usr/bin/docker logs minecraft-server 2>&1 | /usr/bin/grep -F "Done (" | /usr/bin/tail -n 1
-        exit 0
-    fi
-    attempt=$((attempt + 1))
-    sleep 10
-done
-/usr/bin/docker logs --tail 100 minecraft-server 2>&1
-exit 1
-'
-
 printf '\n== Verify Minecraft port and query config in server data ==\n'
 ansible minecraft --become -m ansible.builtin.shell -a "grep -E '^(server-port|enable-query|query.port)=' /opt/minecraft/data/server.properties | sort"
 
@@ -60,9 +44,34 @@ printf '\n== Verify that systemd stops the container through docker stop ==\n'
 ansible minecraft --become -m ansible.builtin.shell -a "systemctl cat minecraft-container.service | grep -E '^(ExecStart|ExecStop)='"
 
 printf '\n== Run the required public nmap verification ==\n'
-printf 'nmap -sV -Pn -p T:25565 %s\n' "$PUBLIC_IP"
 cd "$REPOSITORY_ROOT"
-nmap -sV -Pn -p T:25565 "$PUBLIC_IP" | tee "$NMAP_RESULTS_PATH"
 
-grep -Eq '^25565/tcp[[:space:]]+open' "$NMAP_RESULTS_PATH" || fail "nmap did not report TCP port 25565 as open."
+NMAP_OPEN=0
+
+for attempt in {1..60}; do
+    printf 'nmap attempt %d of 60: nmap -sV -Pn -p T:25565 %s\n' "$attempt" "$PUBLIC_IP"
+
+    set +e
+    nmap -sV -Pn -p T:25565 "$PUBLIC_IP" > "$NMAP_RESULTS_PATH" 2>&1
+    NMAP_RC="$?"
+    set -e
+
+    cat "$NMAP_RESULTS_PATH"
+
+    if [[ "$NMAP_RC" -eq 0 ]] && grep -Eq '^25565/tcp[[:space:]]+open' "$NMAP_RESULTS_PATH"; then
+        NMAP_OPEN=1
+        break
+    fi
+
+    printf 'Minecraft is not open yet. Waiting 10 seconds.\n'
+    sleep 10
+done
+
+if [[ "$NMAP_OPEN" -ne 1 ]]; then
+    printf '\n== Minecraft container logs ==\n'
+    cd "$ANSIBLE_DIRECTORY"
+    ansible minecraft --become -m ansible.builtin.shell -a "/usr/bin/docker logs --tail 120 minecraft-server 2>&1" || true
+    fail "nmap did not report TCP port 25565 as open."
+fi
+
 printf '\nVerification complete.\n'

@@ -76,23 +76,6 @@
         delay: 2
         timeout: 600
 
-    - name: Wait for Minecraft to finish loading
-      ansible.builtin.shell: |
-        set -eu
-        attempt=0
-        while [ "$attempt" -lt 90 ]; do
-            if /usr/bin/docker logs minecraft-server 2>&1 | /usr/bin/grep -F "Done (" >/dev/null; then
-                /usr/bin/docker logs minecraft-server 2>&1 | /usr/bin/grep -F "Done (" | /usr/bin/tail -n 1
-                exit 0
-            fi
-            attempt=$((attempt + 1))
-            sleep 10
-        done
-        /usr/bin/docker logs --tail 100 minecraft-server 2>&1
-        exit 1
-      register: minecraft_done_log
-      changed_when: false
-
     - name: Verify the Minecraft service is active
       ansible.builtin.command: /usr/bin/systemctl is-active minecraft-container.service
       register: minecraft_service_active

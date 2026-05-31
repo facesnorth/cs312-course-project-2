@@ -56,7 +56,7 @@ fi
 chmod 600 "$SSH_PRIVATE_KEY_PATH"
 chmod 644 "$SSH_PUBLIC_KEY_PATH"
 
-ADMIN_PUBLIC_IP="$(curl --ipv4 -fsS https://checkip.amazonaws.com | tr -d '[:space:]')" || fail "Unable to retrieve the control node public IPv4 address."
+ADMIN_PUBLIC_IP="$(curl --ipv4 -fsS https://checkip.amazonaws.com | tr -d '[:space:]')" || fail "Unable to retrieve control node public IPv4 address."
 validate_ipv4 "$ADMIN_PUBLIC_IP" || fail "The retrieved control node address is not a valid IPv4 address."
 
 cat > "$TERRAFORM_VARIABLES_PATH" <<EOFVARS
@@ -65,13 +65,13 @@ ssh_public_key_path = "$SSH_PUBLIC_KEY_PATH"
 EOFVARS
 chmod 600 "$TERRAFORM_VARIABLES_PATH"
 
-printf '\n== Validate AWS identity and fixed deployment location ==\n'
+printf '\n== Validate AWS identity and deployment location ==\n'
 aws sts get-caller-identity --region "$AWS_REGION"
 printf 'AWS Region: %s\n' "$AWS_REGION"
 printf 'Availability Zone: %s\n' "$AWS_AVAILABILITY_ZONE"
 printf 'Ansible management CIDR: %s/32\n' "$ADMIN_PUBLIC_IP"
 
-printf '\n== Initialize and apply Terraform infrastructure ==\n'
+printf '\n== Initialize Terraform and apply infrastructure ==\n'
 terraform -chdir="$TERRAFORM_DIRECTORY" init
 terraform -chdir="$TERRAFORM_DIRECTORY" fmt -check -recursive
 terraform -chdir="$TERRAFORM_DIRECTORY" validate
@@ -94,7 +94,7 @@ minecraft-server ansible_host=$PUBLIC_IP ansible_user=ubuntu ansible_ssh_private
 EOFINVENTORY
 chmod 600 "$ANSIBLE_DIRECTORY/hosts.ini"
 
-printf '\n== Record the provisioned host key for automated Ansible management ==\n'
+printf '\n== Record host key for automated Ansible management ==\n'
 : > "$KNOWN_HOSTS_PATH"
 HOST_KEY_RECORDED=0
 for attempt in {1..30}; do
@@ -103,11 +103,11 @@ for attempt in {1..30}; do
         printf 'Recorded SSH host key for %s.\n' "$PUBLIC_IP"
         break
     fi
-    printf 'Attempt %d of 30: SSH host key not available; waiting 10 seconds.\n' "$attempt"
+    printf 'Attempt %d of 30: SSH host key not available. Waiting 10 seconds.\n' "$attempt"
     sleep 10
 done
 
-[[ "$HOST_KEY_RECORDED" -eq 1 ]] || fail "Unable to record the provisioned instance SSH host key."
+[[ "$HOST_KEY_RECORDED" -eq 1 ]] || fail "Unable to record the SSH host key."
 chmod 600 "$KNOWN_HOSTS_PATH"
 
 printf '\nInfrastructure provisioning complete.\n'
