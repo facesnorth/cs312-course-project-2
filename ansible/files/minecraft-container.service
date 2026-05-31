@@ -11,8 +11,8 @@ RestartSec=10
 TimeoutStartSec=0
 TimeoutStopSec=120
 ExecStartPre=-/usr/bin/docker rm -f minecraft-server
-ExecStart=/usr/bin/docker run --name minecraft-server --pull never -i --stop-timeout 90 --env-file /etc/minecraft/minecraft.env -p 25565:25565/tcp -p 25565:25565/udp -v /opt/minecraft/data:/data itzg/minecraft-server:latest
-ExecStop=/usr/bin/docker stop --time 90 minecraft-server
+ExecStart=/usr/bin/docker run --name minecraft-server --pull never --stop-timeout 90 --env-file /etc/minecraft/minecraft.env -p 25565:25565/tcp -p 25565:25565/udp -v /opt/minecraft/data:/data itzg/minecraft-server:latest
+ExecStop=/usr/bin/docker stop --timeout 90 minecraft-server
 
 [Install]
 WantedBy=multi-user.target

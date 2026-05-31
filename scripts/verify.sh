@@ -21,7 +21,7 @@ NMAP_RESULTS_PATH="$RUNTIME_DIRECTORY/nmap-verification.txt"
 require_command ansible
 require_command nmap
 [[ -f "$DEPLOYMENT_ENV_PATH" ]] || fail "Deployment environment data does not exist. Run ./scripts/provision.sh first."
-[[ -f "$ANSIBLE_DIRECTORY/hosts.ini" ]] || fail "The generated Ansible inventory does not exist. Run ./scripts/provision.sh first."
+[[ -f "$ANSIBLE_DIRECTORY/hosts.ini" ]] || fail "The Ansible data does not exist. Run ./scripts/provision.sh first."
 
 # shellcheck disable=SC1090
 source "$DEPLOYMENT_ENV_PATH"
@@ -37,13 +37,29 @@ ansible minecraft --become -m ansible.builtin.command -a "/usr/bin/systemctl is-
 printf '\n== Verify the running Docker container and image ==\n'
 ansible minecraft --become -m ansible.builtin.command -a "/usr/bin/docker ps --filter name=minecraft-server"
 
-printf '\n== Verify Minecraft port and query configuration in persistent server data ==\n'
+printf '\n== Wait for Minecraft to finish loading before public nmap verification ==\n'
+ansible minecraft --become -m ansible.builtin.shell -a '
+set -eu
+attempt=0
+while [ "$attempt" -lt 90 ]; do
+    if /usr/bin/docker logs minecraft-server 2>&1 | /usr/bin/grep -F "Done (" >/dev/null; then
+        /usr/bin/docker logs minecraft-server 2>&1 | /usr/bin/grep -F "Done (" | /usr/bin/tail -n 1
+        exit 0
+    fi
+    attempt=$((attempt + 1))
+    sleep 10
+done
+/usr/bin/docker logs --tail 100 minecraft-server 2>&1
+exit 1
+'
+
+printf '\n== Verify Minecraft port and query config in server data ==\n'
 ansible minecraft --become -m ansible.builtin.shell -a "grep -E '^(server-port|enable-query|query.port)=' /opt/minecraft/data/server.properties | sort"
 
 printf '\n== Verify that systemd stops the container through docker stop ==\n'
 ansible minecraft --become -m ansible.builtin.shell -a "systemctl cat minecraft-container.service | grep -E '^(ExecStart|ExecStop)='"
 
-printf '\n== Run required public nmap verification ==\n'
+printf '\n== Run the required public nmap verification ==\n'
 printf 'nmap -sV -Pn -p T:25565 %s\n' "$PUBLIC_IP"
 cd "$REPOSITORY_ROOT"
 nmap -sV -Pn -p T:25565 "$PUBLIC_IP" | tee "$NMAP_RESULTS_PATH"
